@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Compression</title>
+    <style>
+        #preview {
+            display: none;
+            max-width: 300px;
+            margin-top: 20px;
+        }
+        .size-info {
+            display: none;
+            margin-top: 10px;
+        }
+        #uploadedSizeInfo {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload an Image to Compress</h1>
+    <input type="file" id="fileInput" accept="image/*"><br><br>
+    
+    <div id="uploadedSizeInfo">
+        <strong>Uploaded Size:</strong> <span id="uploadedSize">0</span> KB
+    </div>
+
+    <p>Select size unit:</p>
+    <input type="radio" id="sizeUnitKB" name="sizeUnit" value="KB" checked>
+    <label for="sizeUnitKB">KB</label>
+    <input type="radio" id="sizeUnitMB" name="sizeUnit" value="MB">
+    <label for="sizeUnitMB">MB</label><br><br>
+    
+    <div id="kbSizeInput" style="display: block;">
+        <label for="targetSizeKB">Target Size (KB):</label>
+        <input type="number" id="targetSizeKB" placeholder="Enter size in KB">
+        <div id="sizeInfoKB" class="size-info">Target Size: <span id="displaySizeKB">0</span> KB</div>
+    </div>
+
+    <div id="mbSizeInput" style="display: none;">
+        <label for="targetSizeMB">Target Size (MB):</label>
+        <input type="number" id="targetSizeMB" placeholder="Enter size in MB">
+        <div id="sizeInfoMB" class="size-info">Target Size: <span id="displaySizeMB">0</span> MB</div>
+    </div>
+
+    <img id="preview" src="" alt="Image Preview">
+    <br>
+    <button id="uploadButton">Compress</button>
+    <button id="downloadButton" style="display:none;">Download Compressed Image</button>
+
+    <script>
+        let compressedBlobUrl;
+
+        document.getElementById('fileInput').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('preview');
+                    img.src = e.target.result;
+                    img.style.display = 'block';  // Show the preview
+                };
+                reader.readAsDataURL(file);
+                
+                // Show uploaded file size
+                const fileSizeKB = (file.size / 1024).toFixed(2); // Convert bytes to KB
+                document.getElementById('uploadedSize').innerText = fileSizeKB;
+                document.getElementById('uploadedSizeInfo').style.display = 'block'; // Show size info
+            }
+        });
+
+        document.querySelectorAll('input[name="sizeUnit"]').forEach((elem) => {
+            elem.addEventListener('change', (event) => {
+                if (event.target.value === 'KB') {
+                    document.getElementById('kbSizeInput').style.display = 'block';
+                    document.getElementById('mbSizeInput').style.display = 'none';
+                    document.getElementById('sizeInfoMB').style.display = 'none'; // Hide MB info
+                } else {
+                    document.getElementById('mbSizeInput').style.display = 'block';
+                    document.getElementById('kbSizeInput').style.display = 'none';
+                    document.getElementById('sizeInfoKB').style.display = 'none'; // Hide KB info
+                }
+            });
+        });
+
+        document.getElementById('targetSizeKB').addEventListener('input', () => {
+            const targetSizeKB = document.getElementById('targetSizeKB').value;
+            document.getElementById('displaySizeKB').innerText = targetSizeKB;
+            document.getElementById('sizeInfoKB').style.display = targetSizeKB ? 'block' : 'none';
+        });
+
+        document.getElementById('targetSizeMB').addEventListener('input', () => {
+            const targetSizeMB = document.getElementById('targetSizeMB').value;
+            document.getElementById('displaySizeMB').innerText = targetSizeMB;
+            document.getElementById('sizeInfoMB').style.display = targetSizeMB ? 'block' : 'none';
+        });
+
+        document.getElementById('uploadButton').addEventListener('click', async () => {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            const targetSizeKB = document.getElementById('targetSizeKB').value;
+            const targetSizeMB = document.getElementById('targetSizeMB').value;
+
+            if (!file) {
+                alert("Please select a file first.");
+                return;
+            }
+
+            // Determine which size to use
+            let targetSize = targetSizeKB ? parseInt(targetSizeKB) : 0;
+            if (document.getElementById('sizeUnitMB').checked && targetSizeMB) {
+                targetSize = parseInt(targetSizeMB) * 1024;  // Convert MB to KB
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('targetSize', targetSize);
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                compressedBlobUrl = URL.createObjectURL(blob);
+                document.getElementById('downloadButton').style.display = 'inline'; // Show the download button
+            } else {
+                alert("Error: " + (await response.json()).error);
+            }
+        });
+
+        document.getElementById('downloadButton').addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.href = compressedBlobUrl;
+            a.download = 'compressed_image.jpg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+    </script>
+</body>
+</html>
